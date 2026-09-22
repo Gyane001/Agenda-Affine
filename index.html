@@ -1,42 +1,148 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css">
+  <title>Planner Mensal</title>
   <link rel="stylesheet" href="style.css">
-  <title>Agenda Affine</title>
 </head>
 <body>
-  <div class="p-5">
-    <h2 class="mb-4">Agenda Affine</h2>
-    <div class="card">
-      <div class="card-body p-0">
-        <div id="calendar"></div>
+  <main class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <button class="menu-button" type="button" aria-label="Menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
       </div>
+
+      <div class="today-panel">
+        <span class="today-label">Hoje</span>
+        <strong id="todayNumber">--</strong>
+        <span id="todayWeekday">--</span>
+      </div>
+
+      <section class="events-summary">
+        <h2>Eventos do mês</h2>
+        <ul id="monthEventsList">
+          <li class="empty-summary">Nenhum evento cadastrado</li>
+        </ul>
+      </section>
+
+      <button class="add-event-sidebar" id="openCreateButton" type="button">
+        <span>Adicionar evento</span>
+        <strong>+</strong>
+      </button>
+    </aside>
+
+    <section class="calendar-area">
+      <header class="calendar-header">
+        <div class="year-navigation">
+          <button id="previousYear" type="button" aria-label="Ano anterior">‹</button>
+          <span id="currentYear">2026</span>
+          <button id="nextYear" type="button" aria-label="Próximo ano">›</button>
+        </div>
+
+        <div class="month-navigation">
+          <button id="previousMonth" type="button" aria-label="Mês anterior">‹</button>
+          <h1 id="currentMonth">Janeiro</h1>
+          <button id="nextMonth" type="button" aria-label="Próximo mês">›</button>
+        </div>
+
+        <button class="today-button" id="goToToday" type="button">
+          Hoje
+        </button>
+      </header>
+
+      <div class="calendar-wrapper">
+        <div class="weekdays" aria-hidden="true">
+          <div>Domingo</div>
+          <div>Segunda-feira</div>
+          <div>Terça-feira</div>
+          <div>Quarta-feira</div>
+          <div>Quinta-feira</div>
+          <div>Sexta-feira</div>
+          <div>Sábado</div>
+        </div>
+
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal hidden" id="eventModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modalTitle">Adicionar evento</h2>
+        <button class="close-modal" id="closeModal" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <form id="eventForm">
+        <input type="hidden" id="eventId">
+
+        <label for="eventTitle">Nome ou título</label>
+        <input
+          id="eventTitle"
+          type="text"
+          placeholder="Ex.: Estudar Engenharia de Software"
+          required
+        >
+
+        <div class="form-row">
+          <div>
+            <label for="eventStart">Data inicial</label>
+            <input id="eventStart" type="date" required>
+          </div>
+
+          <div>
+            <label for="eventEnd">Data final</label>
+            <input id="eventEnd" type="date" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label for="eventIcon">Ícone</label>
+            <select id="eventIcon">
+              <option value="📚">📚 Livro</option>
+              <option value="🎯">🎯 Objetivo</option>
+              <option value="💼">💼 Trabalho</option>
+              <option value="🎓">🎓 Estudos</option>
+              <option value="🏋️">🏋️ Exercício</option>
+              <option value="✈️">✈️ Viagem</option>
+              <option value="🎉">🎉 Evento</option>
+              <option value="📝">📝 Tarefa</option>
+              <option value="❤️">❤️ Pessoal</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="eventColor">Cor</label>
+            <input id="eventColor" type="color" value="#8b5cf6">
+          </div>
+        </div>
+
+        <p class="form-error" id="formError"></p>
+
+        <div class="modal-actions">
+          <button class="delete-button hidden" id="deleteEventButton" type="button">
+            Excluir
+          </button>
+
+          <div class="modal-actions-right">
+            <button class="cancel-button" id="cancelModal" type="button">
+              Cancelar
+            </button>
+            <button class="save-button" type="submit">
+              Salvar evento
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
 
-  <div id="modal-view-event" class="modal modal-top fade calendar-modal" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-body">
-          <h4 class="modal-title"><span class="event-icon"></span> <span class="event-title"></span></h4>
-          <div class="event-body"></div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/locales/pt-br.js"></script>
-  <script src="code.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
