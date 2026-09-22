@@ -1,506 +1,857 @@
-/* =========================================================
-   Dados e configurações
-   ========================================================= */
+"use strict";
 
-const STORAGE_KEY = "planner-mensal-eventos";
-const MIN_YEAR = 2026;
-const MAX_YEAR = 2030;
+const STORAGE_KEYS = {
+  events: "planner-eventos",
+  themes: "planner-temas",
+  currentTheme: "planner-tema-atual",
+  settings: "planner-personalizacoes"
+};
 
-const monthNames = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro"
+const LIMITS = {
+  min: "2026-01-01",
+  max: "2030-12-31"
+};
+
+const MONTHS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
 
-const weekdayNames = [
-  "Domingo",
-  "Segunda-feira",
-  "Terça-feira",
-  "Quarta-feira",
-  "Quinta-feira",
-  "Sexta-feira",
-  "Sábado"
+const WEEKDAYS = [
+  "Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira",
+  "Quinta-feira", "Sexta-feira", "Sábado"
 ];
 
+const COLOR_SETTINGS = [
+  ["page-bg", "Fundo geral"],
+  ["calendar-bg", "Fundo do calendário"],
+  ["cell-bg", "Fundo das células"],
+  ["header-bg", "Cabeçalho"],
+  ["weekday-bg", "Dias da semana"],
+  ["number-color", "Números dos dias"],
+  ["weekend-color", "Finais de semana"],
+  ["today-bg", "Dia atual"],
+  ["selected-bg", "Dia selecionado"],
+  ["border-color", "Bordas"],
+  ["primary-text", "Texto principal"],
+  ["secondary-text", "Texto secundário"],
+  ["button-bg", "Botões"],
+  ["button-text", "Texto dos botões"],
+  ["icon-color", "Ícones"],
+  ["accent-color", "Cor de destaque"]
+];
+
+const DEFAULT_THEME = {
+  name: "Padrão",
+  settings: {
+    colors: {
+      "page-bg": "#F5F1EC",
+      "calendar-bg": "#FFFDFA",
+      "cell-bg": "#FFFDFA",
+      "header-bg": "#FFFDFA",
+      "weekday-bg": "#F2ECE5",
+      "number-color": "#413B36",
+      "weekend-color": "#AA766E",
+      "today-bg": "#EAD5CF",
+      "selected-bg": "#D9C3BD",
+      "border-color": "#DED3C8",
+      "primary-text": "#3E3833",
+      "secondary-text": "#91857B",
+      "button-bg": "#5E4B45",
+      "button-text": "#FFFFFF",
+      "icon-color": "#6D5750",
+      "accent-color": "#A98279"
+    },
+    dimensions: {
+      radius: 18,
+      border: 1,
+      gap: 8,
+      font: 15
+    }
+  }
+};
+
+let events = loadData(STORAGE_KEYS.events, []);
+let themes = loadData(STORAGE_KEYS.themes, []);
+let activeThemeName = localStorage.getItem(STORAGE_KEYS.currentTheme) || "Padrão";
+
+let viewDate = new Date();
 let selectedDate = new Date();
-let displayedYear = selectedDate.getFullYear();
-let displayedMonth = selectedDate.getMonth();
-let events = loadEvents();
+let editingEventId = null;
 
-/* Mantém o planner dentro do intervalo permitido. */
-if (displayedYear < MIN_YEAR || displayedYear > MAX_YEAR) {
-  displayedYear = MIN_YEAR;
-  displayedMonth = 0;
-}
+const $ = selector => document.querySelector(selector);
 
-/* =========================================================
-   Elementos da interface
-   ========================================================= */
+document.addEventListener("DOMContentLoaded", initialize);
 
-const calendarGrid = document.getElementById("calendarGrid");
-const currentMonthElement = document.getElementById("currentMonth");
-const currentYearElement = document.getElementById("currentYear");
-const monthEventsList = document.getElementById("monthEventsList");
+function initialize() {
+  viewDate = clampDate(viewDate);
+  selectedDate = clampDate(selectedDate);
 
-const eventModal = document.getElementById("eventModal");
-const eventForm = document.getElementById("eventForm");
-const modalTitle = document.getElementById("modalTitle");
-const formError = document.getElementById("formError");
+  const savedSettings = loadData(STORAGE_KEYS.settings, null);
+  if (savedSettings) {
+    applySettings(savedSettings, false);
+  } else {
+    applyTheme(DEFAULT_THEME, false);
+  }
 
-const eventIdInput = document.getElementById("eventId");
-const eventTitleInput = document.getElementById("eventTitle");
-const eventStartInput = document.getElementById("eventStart");
-const eventEndInput = document.getElementById("eventEnd");
-const eventIconInput = document.getElementById("eventIcon");
-const eventColorInput = document.getElementById("eventColor");
-const deleteEventButton = document.getElementById("deleteEventButton");
-
-/* =========================================================
-   Inicialização
-   ========================================================= */
-
-document.addEventListener("DOMContentLoaded", () => {
-  updateTodayPanel();
+  bindEvents();
   renderCalendar();
-  renderMonthSummary();
-  setupEvents();
-});
+  renderEventPanel();
+  renderCustomizationControls();
+  renderThemes();
+}
 
-/* =========================================================
-   Eventos da interface
-   ========================================================= */
+function bindEvents() {
+  $("#menuButton").addEventListener("click", toggleMenu);
+  $("#closeMenuButton").addEventListener("click", closeMenu);
+  $("#menuOverlay").addEventListener("click", closeMenu);
 
-function setupEvents() {
-  document.getElementById("previousMonth").addEventListener("click", () => {
-    changeMonth(-1);
+  $("#previousMonthButton").addEventListener("click", () => changeMonth(-1));
+  $("#nextMonthButton").addEventListener("click", () => changeMonth(1));
+  $("#todayButton").addEventListener("click", goToToday);
+
+  $("#headerAddButton").addEventListener("click", () => openEventModal());
+  $("#panelAddButton").addEventListener("click", () => openEventModal());
+  $("#wideAddButton").addEventListener("click", () => openEventModal());
+
+  $("#eventForm").addEventListener("submit", saveEventFromForm);
+  $("#deleteEventButton").addEventListener("click", deleteEditingEvent);
+
+  document.querySelectorAll("[data-close-modal]").forEach(button => {
+    button.addEventListener("click", () => closeModal(button.dataset.closeModal));
   });
 
-  document.getElementById("nextMonth").addEventListener("click", () => {
-    changeMonth(1);
+  document.querySelectorAll(".modal-backdrop").forEach(backdrop => {
+    backdrop.addEventListener("click", event => {
+      if (event.target === backdrop) closeModal(backdrop.id);
+    });
   });
 
-  document.getElementById("previousYear").addEventListener("click", () => {
-    changeYear(-1);
+  document.querySelectorAll("[data-menu-action]").forEach(button => {
+    button.addEventListener("click", () => {
+      const action = button.dataset.menuAction;
+
+      if (action === "customize" || action === "themes") {
+        openModal("customizeModalBackdrop");
+      } else if (action === "events") {
+        document.querySelector(".events-panel").scrollIntoView({ behavior: "smooth" });
+      } else if (action === "calendar") {
+        document.querySelector(".calendar-panel").scrollIntoView({ behavior: "smooth" });
+      } else {
+        alert("Esta área está preparada para futuras configurações.");
+      }
+
+      closeMenu();
+    });
   });
 
-  document.getElementById("nextYear").addEventListener("click", () => {
-    changeYear(1);
-  });
+  bindColorPair("eventColorPicker", "eventColorHex", "eventColorError");
+  bindColorPair("eventTextColorPicker", "eventTextColorHex", "eventTextColorError");
 
-  document.getElementById("goToToday").addEventListener("click", goToToday);
+  $("#saveThemeButton").addEventListener("click", saveTheme);
+  $("#restoreDefaultButton").addEventListener("click", restoreDefaultTheme);
 
-  document
-    .getElementById("openCreateButton")
-    .addEventListener("click", () => openEventModal());
+  $("#radiusRange").addEventListener("input", updateDimension);
+  $("#borderRange").addEventListener("input", updateDimension);
+  $("#gapRange").addEventListener("input", updateDimension);
+  $("#fontRange").addEventListener("input", updateDimension);
 
-  document
-    .getElementById("closeModal")
-    .addEventListener("click", closeEventModal);
-
-  document
-    .getElementById("cancelModal")
-    .addEventListener("click", closeEventModal);
-
-  document
-    .getElementById("deleteEventButton")
-    .addEventListener("click", deleteCurrentEvent);
-
-  eventForm.addEventListener("submit", saveEvent);
-
-  eventModal.addEventListener("click", (event) => {
-    if (event.target === eventModal) {
-      closeEventModal();
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
+  document.addEventListener("keydown", event => {
     if (event.key === "Escape") {
-      closeEventModal();
+      closeMenu();
+      document.querySelectorAll(".modal-backdrop.open").forEach(modal => closeModal(modal.id));
     }
   });
 }
-
-/* =========================================================
-   Funções relacionadas ao calendário
-   ========================================================= */
 
 function renderCalendar() {
-  calendarGrid.innerHTML = "";
+  const grid = $("#calendarGrid");
+  grid.innerHTML = "";
 
-  currentMonthElement.textContent = monthNames[displayedMonth];
-  currentYearElement.textContent = displayedYear;
+  $("#currentMonthLabel").textContent =
+    `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
 
-  const firstDay = new Date(displayedYear, displayedMonth, 1);
-  const firstWeekday = firstDay.getDay();
+  const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+  const startDate = new Date(firstDay);
+  startDate.setDate(firstDay.getDate() - firstDay.getDay());
 
-  const daysInCurrentMonth = new Date(
-    displayedYear,
-    displayedMonth + 1,
-    0
-  ).getDate();
+  for (let week = 0; week < 6; week++) {
+    const weekStart = new Date(startDate);
+    weekStart.setDate(startDate.getDate() + week * 7);
 
-  const daysInPreviousMonth = new Date(
-    displayedYear,
-    displayedMonth,
-    0
-  ).getDate();
+    const weekElement = document.createElement("div");
+    weekElement.className = "calendar-week";
 
-  /*
-   * Serão exibidas 42 células para manter uma grade mensal estável,
-   * incluindo dias do mês anterior e do próximo mês.
-   */
-  for (let cellIndex = 0; cellIndex < 42; cellIndex++) {
-    let date;
-    let isOutsideMonth = false;
+    const daysRow = document.createElement("div");
+    daysRow.className = "days-row";
 
-    if (cellIndex < firstWeekday) {
-      const day = daysInPreviousMonth - firstWeekday + cellIndex + 1;
-      date = new Date(displayedYear, displayedMonth - 1, day);
-      isOutsideMonth = true;
-    } else if (cellIndex >= firstWeekday + daysInCurrentMonth) {
-      const day =
-        cellIndex - firstWeekday - daysInCurrentMonth + 1;
-      date = new Date(displayedYear, displayedMonth + 1, day);
-      isOutsideMonth = true;
-    } else {
-      const day = cellIndex - firstWeekday + 1;
-      date = new Date(displayedYear, displayedMonth, day);
+    for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + dayIndex);
+
+      const cell = document.createElement("button");
+      cell.className = "day-cell";
+      cell.type = "button";
+      cell.dataset.date = formatDate(date);
+
+      if (date.getMonth() !== viewDate.getMonth()) {
+        cell.classList.add("other-month");
+      }
+
+      if (date.getDay() === 0 || date.getDay() === 6) {
+        cell.classList.add("weekend");
+      }
+
+      if (isSameDate(date, new Date())) {
+        cell.classList.add("today");
+      }
+
+      if (isSameDate(date, selectedDate)) {
+        cell.classList.add("selected");
+      }
+
+      cell.innerHTML = `<span class="day-number">${date.getDate()}</span>`;
+      cell.addEventListener("click", () => selectDate(date));
+      daysRow.appendChild(cell);
     }
 
-    const cell = createDayCell(date, isOutsideMonth);
-    calendarGrid.appendChild(cell);
+    weekElement.appendChild(daysRow);
+
+    const eventLayer = document.createElement("div");
+    eventLayer.className = "event-layer";
+
+    const weekEvents = getEventsForWeek(weekStart);
+    const lanes = [];
+
+    weekEvents.forEach(event => {
+      const eventStart = parseDate(event.start);
+      const eventEnd = parseDate(event.end);
+
+      const visibleStart = eventStart > weekStart ? eventStart : weekStart;
+      const weekEnd = addDays(weekStart, 6);
+      const visibleEnd = eventEnd < weekEnd ? eventEnd : weekEnd;
+
+      const startColumn = visibleStart.getDay() + 1;
+      const span = visibleEnd.getDay() - visibleStart.getDay() + 1;
+
+      let lane = 0;
+      while (lanes[lane]?.some(item => rangesOverlap(
+        item.start, item.end, visibleStart, visibleEnd
+      ))) {
+        lane++;
+      }
+
+      if (!lanes[lane]) lanes[lane] = [];
+      lanes[lane].push({
+        start: visibleStart,
+        end: visibleEnd
+      });
+
+      const bar = document.createElement("button");
+      bar.type = "button";
+      bar.className = "event-bar";
+      bar.style.gridColumn = `${startColumn} / span ${span}`;
+      bar.style.gridRow = lane + 1;
+      bar.style.setProperty("--event-color", event.color);
+      bar.style.setProperty("--event-text-color", event.textColor);
+      bar.title = `${event.icon} ${event.name}`;
+      bar.innerHTML = `
+        <span class="bar-icon">${escapeHTML(event.icon)}</span>
+        <span class="bar-name">${escapeHTML(event.name)}</span>
+      `;
+
+      bar.addEventListener("click", clickEventHandler(event.id));
+      eventLayer.appendChild(bar);
+    });
+
+    eventLayer.style.minHeight = `${Math.max(1, lanes.length) * 26}px`;
+    weekElement.appendChild(eventLayer);
+    grid.appendChild(weekElement);
   }
 }
 
-function createDayCell(date, isOutsideMonth) {
-  const cell = document.createElement("div");
-  cell.className = "day-cell";
+function getEventsForWeek(weekStart) {
+  const weekEnd = addDays(weekStart, 6);
 
-  if (isOutsideMonth) {
-    cell.classList.add("outside-month");
-  }
-
-  if (isToday(date)) {
-    cell.classList.add("today");
-  }
-
-  const number = document.createElement("span");
-  number.className = "day-number";
-  number.textContent = String(date.getDate()).padStart(2, "0");
-
-  const eventList = document.createElement("div");
-  eventList.className = "event-list";
-
-  const dateString = formatDateForInput(date);
-
-  const eventsForDay = events
-    .filter((event) => dateString >= event.start && dateString <= event.end)
+  return events
+    .filter(event => rangesOverlap(
+      parseDate(event.start),
+      parseDate(event.end),
+      weekStart,
+      weekEnd
+    ))
     .sort((a, b) => a.start.localeCompare(b.start));
+}
 
-  const visibleEvents = eventsForDay.slice(0, 3);
-
-  visibleEvents.forEach((event) => {
-    const eventTag = document.createElement("button");
-    eventTag.type = "button";
-    eventTag.className = "event-tag";
-    eventTag.title = `${event.icon} ${event.title}\n${formatDateBR(event.start)} até ${formatDateBR(event.end)}`;
-    eventTag.style.setProperty("--tag-color", event.color);
-
-    if (dateString === event.start) {
-      eventTag.classList.add("event-start");
-    }
-
-    if (dateString === event.end) {
-      eventTag.classList.add("event-end");
-    }
-
-    if (dateString !== event.start && dateString !== event.end) {
-      eventTag.classList.add("event-middle");
-    }
-
-    eventTag.textContent =
-      dateString === event.start
-        ? `${event.icon} ${event.title}`
-        : "•";
-
-    eventTag.addEventListener("click", (clickEvent) => {
-      clickEvent.stopPropagation();
-      openEventModal(event);
-    });
-
-    eventList.appendChild(eventTag);
-  });
-
-  if (eventsForDay.length > visibleEvents.length) {
-    const more = document.createElement("span");
-    more.className = "more-events";
-    more.textContent = `+ ${eventsForDay.length - visibleEvents.length} evento(s)`;
-    eventList.appendChild(more);
-  }
-
-  cell.appendChild(number);
-  cell.appendChild(eventList);
-
-  cell.addEventListener("dblclick", () => {
-    openEventModal(null, dateString);
-  });
-
-  return cell;
+function selectDate(date) {
+  selectedDate = clampDate(date);
+  viewDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  renderCalendar();
+  renderEventPanel();
 }
 
 function changeMonth(amount) {
-  let newMonth = displayedMonth + amount;
-  let newYear = displayedYear;
+  const next = new Date(viewDate.getFullYear(), viewDate.getMonth() + amount, 1);
 
-  if (newMonth < 0) {
-    newMonth = 11;
-    newYear--;
-  }
+  if (next.getFullYear() < 2026 || next.getFullYear() > 2030) return;
 
-  if (newMonth > 11) {
-    newMonth = 0;
-    newYear++;
-  }
+  viewDate = next;
 
-  if (newYear < MIN_YEAR || newYear > MAX_YEAR) {
-    return;
-  }
+  const selectedDay = Math.min(
+    selectedDate.getDate(),
+    daysInMonth(viewDate.getFullYear(), viewDate.getMonth())
+  );
 
-  displayedMonth = newMonth;
-  displayedYear = newYear;
-
+  selectedDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), selectedDay);
   renderCalendar();
-  renderMonthSummary();
-}
-
-function changeYear(amount) {
-  const newYear = displayedYear + amount;
-
-  if (newYear < MIN_YEAR || newYear > MAX_YEAR) {
-    return;
-  }
-
-  displayedYear = newYear;
-  renderCalendar();
-  renderMonthSummary();
+  renderEventPanel();
 }
 
 function goToToday() {
-  const today = new Date();
+  const today = clampDate(new Date());
+  viewDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  selectedDate = today;
+  renderCalendar();
+  renderEventPanel();
+}
 
-  if (
-    today.getFullYear() < MIN_YEAR ||
-    today.getFullYear() > MAX_YEAR
-  ) {
+function renderEventPanel() {
+  const dateText = selectedDate.toLocaleDateString("pt-BR", {
+    day: "numeric",
+    month: "long"
+  });
+
+  $("#selectedDateTitle").textContent =
+    dateText.charAt(0).toUpperCase() + dateText.slice(1);
+
+  $("#selectedWeekday").textContent = WEEKDAYS[selectedDate.getDay()];
+
+  const dayEvents = events
+    .filter(event => dateIsBetween(selectedDate, event.start, event.end))
+    .sort((a, b) => a.start.localeCompare(b.start));
+
+  $("#eventCount").textContent = `${dayEvents.length} ${
+    dayEvents.length === 1 ? "evento" : "eventos"
+  }`;
+
+  const list = $("#eventList");
+  list.innerHTML = "";
+
+  if (!dayEvents.length) {
+    list.innerHTML = `<div class="empty-state">Nenhum evento para este dia.</div>`;
     return;
   }
 
-  displayedYear = today.getFullYear();
-  displayedMonth = today.getMonth();
+  dayEvents.forEach(event => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "event-card";
+    card.style.setProperty("--event-color", event.color);
+    card.style.setProperty("--event-text-color", event.textColor);
 
-  renderCalendar();
-  renderMonthSummary();
-  updateTodayPanel();
+    card.innerHTML = `
+      <span class="event-icon">${escapeHTML(event.icon)}</span>
+      <span>
+        <strong>${escapeHTML(event.name)}</strong>
+        <small>${formatDateBR(event.start)} → ${formatDateBR(event.end)}</small>
+      </span>
+      <span class="event-card-menu">⋯</span>
+    `;
+
+    card.addEventListener("click", clickEventHandler(event.id));
+    list.appendChild(card);
+  });
 }
 
-function isToday(date) {
-  const today = new Date();
+function openEventModal(eventId = null) {
+  editingEventId = eventId;
+  const event = eventId ? events.find(item => item.id === eventId) : null;
 
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
+  $("#eventModalTitle").textContent = event ? "Editar evento" : "Novo evento";
+  $("#deleteEventButton").classList.toggle("hidden", !event);
+
+  $("#eventId").value = event?.id || "";
+  $("#eventName").value = event?.name || "";
+  $("#eventIcon").value = event?.icon || "✦";
+  $("#eventStart").value = event?.start || formatDate(selectedDate);
+  $("#eventEnd").value = event?.end || formatDate(selectedDate);
+
+  setColorPair(
+    "eventColorPicker",
+    "eventColorHex",
+    event?.color || "#A855F7"
   );
+
+  setColorPair(
+    "eventTextColorPicker",
+    "eventTextColorHex",
+    event?.textColor || "#FFFFFF"
+  );
+
+  clearColorErrors();
+  openModal("eventModalBackdrop");
+  setTimeout(() => $("#eventName").focus(), 50);
 }
 
-/* =========================================================
-   Funções relacionadas às tags/eventos
-   ========================================================= */
-
-function openEventModal(event = null, suggestedDate = "") {
-  eventModal.classList.remove("hidden");
-  formError.textContent = "";
-
-  if (event) {
-    modalTitle.textContent = "Editar evento";
-    eventIdInput.value = event.id;
-    eventTitleInput.value = event.title;
-    eventStartInput.value = event.start;
-    eventEndInput.value = event.end;
-    eventIconInput.value = event.icon;
-    eventColorInput.value = event.color;
-    deleteEventButton.classList.remove("hidden");
-  } else {
-    modalTitle.textContent = "Adicionar evento";
-    eventForm.reset();
-    eventIdInput.value = "";
-    eventStartInput.value = suggestedDate || formatDateForInput(new Date());
-    eventEndInput.value = suggestedDate || formatDateForInput(new Date());
-    eventIconInput.value = "📚";
-    eventColorInput.value = "#8b5cf6";
-    deleteEventButton.classList.add("hidden");
-  }
-
-  eventTitleInput.focus();
-}
-
-function closeEventModal() {
-  eventModal.classList.add("hidden");
-  eventForm.reset();
-  formError.textContent = "";
-}
-
-function saveEvent(event) {
+function saveEventFromForm(event) {
   event.preventDefault();
 
-  const title = eventTitleInput.value.trim();
-  const start = eventStartInput.value;
-  const end = eventEndInput.value;
+  const name = $("#eventName").value.trim();
+  const start = $("#eventStart").value;
+  const end = $("#eventEnd").value;
+  const color = normalizeHex($("#eventColorHex").value);
+  const textColor = normalizeHex($("#eventTextColorHex").value);
 
-  if (!title || !start || !end) {
-    formError.textContent = "Preencha todos os campos obrigatórios.";
+  if (!name || !start || !end) return;
+
+  if (start > end) {
+    alert("A data final deve ser igual ou posterior à data inicial.");
     return;
   }
 
-  if (end < start) {
-    formError.textContent =
-      "A data final deve ser igual ou posterior à data inicial.";
+  if (start < LIMITS.min || end > LIMITS.max) {
+    alert("Os eventos devem estar entre 2026 e 2030.");
+    return;
+  }
+
+  if (!isValidHex(color) || !isValidHex(textColor)) {
+    showColorErrors(color, textColor);
     return;
   }
 
   const eventData = {
-    id: eventIdInput.value || createId(),
-    title,
+    id: editingEventId || crypto.randomUUID(),
+    name,
+    icon: $("#eventIcon").value.trim() || "✦",
     start,
     end,
-    icon: eventIconInput.value,
-    color: eventColorInput.value
+    color,
+    textColor
   };
 
-  const existingIndex = events.findIndex(
-    (item) => item.id === eventData.id
-  );
-
-  if (existingIndex >= 0) {
-    events[existingIndex] = eventData;
+  if (editingEventId) {
+    events = events.map(item => item.id === editingEventId ? eventData : item);
   } else {
     events.push(eventData);
   }
 
-  saveEvents();
-  closeEventModal();
+  saveData(STORAGE_KEYS.events, events);
+  closeModal("eventModalBackdrop");
+
+  selectedDate = parseDate(start);
+  viewDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+
   renderCalendar();
-  renderMonthSummary();
+  renderEventPanel();
 }
 
-function deleteCurrentEvent() {
-  const eventId = eventIdInput.value;
+function deleteEditingEvent() {
+  if (!editingEventId) return;
 
-  if (!eventId) {
-    return;
-  }
+  const event = events.find(item => item.id === editingEventId);
+  if (!event) return;
 
-  const confirmed = window.confirm(
-    "Deseja realmente excluir este evento?"
-  );
+  if (!confirm(`Excluir o evento "${event.name}"?`)) return;
 
-  if (!confirmed) {
-    return;
-  }
+  events = events.filter(item => item.id !== editingEventId);
+  saveData(STORAGE_KEYS.events, events);
 
-  events = events.filter((event) => event.id !== eventId);
-  saveEvents();
-  closeEventModal();
+  closeModal("eventModalBackdrop");
   renderCalendar();
-  renderMonthSummary();
+  renderEventPanel();
 }
 
-function renderMonthSummary() {
-  monthEventsList.innerHTML = "";
+function clickEventHandler(eventId) {
+  return mouseEvent => {
+    mouseEvent.stopPropagation();
+    openEventModal(eventId);
+  };
+}
 
-  const monthPrefix =
-    `${displayedYear}-${String(displayedMonth + 1).padStart(2, "0")}`;
+function bindColorPair(pickerId, hexId, errorId) {
+  const picker = $(`#${pickerId}`);
+  const hex = $(`#${hexId}`);
 
-  const currentMonthEvents = events
-    .filter(
-      (event) =>
-        event.start.startsWith(monthPrefix) ||
-        event.end.startsWith(monthPrefix) ||
-        (event.start < `${monthPrefix}-01` &&
-          event.end >= `${monthPrefix}-01`)
-    )
-    .sort((a, b) => a.start.localeCompare(b.start));
+  picker.addEventListener("input", () => {
+    hex.value = picker.value.toUpperCase();
+    $(`#${errorId}`).textContent = "";
+  });
 
-  if (!currentMonthEvents.length) {
-    const empty = document.createElement("li");
-    empty.className = "empty-summary";
-    empty.textContent = "Nenhum evento cadastrado";
-    monthEventsList.appendChild(empty);
-    return;
-  }
+  hex.addEventListener("input", () => {
+    const value = normalizeHex(hex.value);
 
-  currentMonthEvents.slice(0, 6).forEach((event) => {
-    const item = document.createElement("li");
-    item.textContent = `${event.icon} ${event.title}`;
-    item.title = `${formatDateBR(event.start)} até ${formatDateBR(event.end)}`;
-    monthEventsList.appendChild(item);
+    if (isValidHex(value)) {
+      picker.value = value;
+      $(`#${errorId}`).textContent = "";
+    } else {
+      $(`#${errorId}`).textContent = "Informe uma cor HEX válida.";
+    }
+  });
+
+  hex.addEventListener("blur", () => {
+    const value = normalizeHex(hex.value);
+    if (isValidHex(value)) hex.value = value;
   });
 }
 
-/* =========================================================
-   Funções de armazenamento
-   ========================================================= */
+function setColorPair(pickerId, hexId, value) {
+  const color = normalizeHex(value);
+  $(`#${pickerId}`).value = isValidHex(color) ? color : "#000000";
+  $(`#${hexId}`).value = color;
+}
 
-function loadEvents() {
-  try {
-    const storedEvents = localStorage.getItem(STORAGE_KEY);
-    return storedEvents ? JSON.parse(storedEvents) : [];
-  } catch (error) {
-    console.error("Não foi possível carregar os eventos.", error);
-    return [];
+function clearColorErrors() {
+  $("#eventColorError").textContent = "";
+  $("#eventTextColorError").textContent = "";
+}
+
+function showColorErrors(color, textColor) {
+  $("#eventColorError").textContent = isValidHex(color) ? "" : "Informe uma cor HEX válida.";
+  $("#eventTextColorError").textContent = isValidHex(textColor) ? "" : "Informe uma cor HEX válida.";
+}
+
+function renderCustomizationControls() {
+  const container = $("#colorSettings");
+  container.innerHTML = "";
+
+  const current = getCurrentSettings();
+
+  COLOR_SETTINGS.forEach(([key, label]) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "custom-color";
+    wrapper.innerHTML = `
+      <label for="custom-${key}">${label}</label>
+      <input type="color" id="picker-${key}" value="${current.colors[key]}">
+      <input type="text" id="custom-${key}" value="${current.colors[key]}" maxlength="7">
+    `;
+
+    container.appendChild(wrapper);
+
+    const picker = $(`#picker-${key}`);
+    const hex = $(`#custom-${key}`);
+
+    picker.addEventListener("input", () => {
+      hex.value = picker.value.toUpperCase();
+      updateCustomColor(key, picker.value);
+    });
+
+    hex.addEventListener("input", () => {
+      const value = normalizeHex(hex.value);
+      if (isValidHex(value)) {
+        picker.value = value;
+        updateCustomColor(key, value);
+      }
+    });
+  });
+
+  const dimensions = current.dimensions;
+  $("#radiusRange").value = dimensions.radius;
+  $("#borderRange").value = dimensions.border;
+  $("#gapRange").value = dimensions.gap;
+  $("#fontRange").value = dimensions.font;
+  updateRangeOutputs(dimensions);
+}
+
+function updateCustomColor(key, value) {
+  if (!isValidHex(value)) return;
+
+  document.documentElement.style.setProperty(`--${key}`, value.toUpperCase());
+
+  const settings = getCurrentSettings();
+  settings.colors[key] = value.toUpperCase();
+  saveData(STORAGE_KEYS.settings, settings);
+}
+
+function updateDimension() {
+  const dimensions = {
+    radius: Number($("#radiusRange").value),
+    border: Number($("#borderRange").value),
+    gap: Number($("#gapRange").value),
+    font: Number($("#fontRange").value)
+  };
+
+  document.documentElement.style.setProperty("--radius", `${dimensions.radius}px`);
+  document.documentElement.style.setProperty("--border-width", `${dimensions.border}px`);
+  document.documentElement.style.setProperty("--cell-gap", `${dimensions.gap}px`);
+  document.documentElement.style.setProperty("--base-font-size", `${dimensions.font}px`);
+
+  updateRangeOutputs(dimensions);
+
+  const settings = getCurrentSettings();
+  settings.dimensions = dimensions;
+  saveData(STORAGE_KEYS.settings, settings);
+  renderCalendar();
+}
+
+function updateRangeOutputs(dimensions) {
+  $("#radiusOutput").value = `${dimensions.radius}px`;
+  $("#borderOutput").value = `${dimensions.border}px`;
+  $("#gapOutput").value = `${dimensions.gap}px`;
+  $("#fontOutput").value = `${dimensions.font}px`;
+}
+
+function getCurrentSettings() {
+  const styles = getComputedStyle(document.documentElement);
+
+  const colors = {};
+  COLOR_SETTINGS.forEach(([key]) => {
+    colors[key] = styles.getPropertyValue(`--${key}`).trim().toUpperCase();
+  });
+
+  return {
+    colors,
+    dimensions: {
+      radius: Number($("#radiusRange")?.value || 18),
+      border: Number($("#borderRange")?.value || 1),
+      gap: Number($("#gapRange")?.value || 8),
+      font: Number($("#fontRange")?.value || 15)
+    }
+  };
+}
+
+function saveTheme() {
+  const nameInput = $("#themeName");
+  const name = nameInput.value.trim();
+
+  if (!name) {
+    alert("Digite um nome para o tema.");
+    nameInput.focus();
+    return;
   }
+
+  const theme = {
+    name,
+    settings: getCurrentSettings()
+  };
+
+  const existingIndex = themes.findIndex(item => item.name.toLowerCase() === name.toLowerCase());
+
+  if (existingIndex >= 0) {
+    themes[existingIndex] = theme;
+  } else {
+    themes.push(theme);
+  }
+
+  saveData(STORAGE_KEYS.themes, themes);
+  activeThemeName = name;
+  localStorage.setItem(STORAGE_KEYS.currentTheme, name);
+  nameInput.value = "";
+  renderThemes();
 }
 
-function saveEvents() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+function renderThemes() {
+  const list = $("#themesList");
+  list.innerHTML = "";
+
+  const allThemes = [DEFAULT_THEME, ...themes];
+
+  allThemes.forEach(theme => {
+    const row = document.createElement("div");
+    row.className = "theme-row";
+
+    const isDefault = theme.name === DEFAULT_THEME.name;
+
+    row.innerHTML = `
+      <strong>${escapeHTML(theme.name)}${theme.name === activeThemeName ? " · ativo" : ""}</strong>
+      <button type="button" data-theme-apply="${escapeHTML(theme.name)}">Aplicar</button>
+      ${!isDefault ? `<button type="button" data-theme-edit="${escapeHTML(theme.name)}">Editar</button>` : ""}
+      ${!isDefault ? `<button type="button" class="delete-theme" data-theme-delete="${escapeHTML(theme.name)}">Excluir</button>` : ""}
+    `;
+
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll("[data-theme-apply]").forEach(button => {
+    button.addEventListener("click", () => {
+      const theme = findTheme(button.dataset.themeApply);
+      if (theme) {
+        applyTheme(theme);
+        activeThemeName = theme.name;
+        localStorage.setItem(STORAGE_KEYS.currentTheme, theme.name);
+        renderThemes();
+      }
+    });
+  });
+
+  list.querySelectorAll("[data-theme-edit]").forEach(button => {
+    button.addEventListener("click", () => {
+      const theme = findTheme(button.dataset.themeEdit);
+      if (!theme) return;
+
+      applyTheme(theme);
+      $("#themeName").value = theme.name;
+      activeThemeName = theme.name;
+      localStorage.setItem(STORAGE_KEYS.currentTheme, theme.name);
+      renderThemes();
+    });
+  });
+
+  list.querySelectorAll("[data-theme-delete]").forEach(button => {
+    button.addEventListener("click", () => {
+      const name = button.dataset.themeDelete;
+
+      if (!confirm(`Excluir o tema "${name}"?`)) return;
+
+      themes = themes.filter(theme => theme.name !== name);
+      saveData(STORAGE_KEYS.themes, themes);
+
+      if (activeThemeName === name) {
+        applyTheme(DEFAULT_THEME);
+        activeThemeName = DEFAULT_THEME.name;
+        localStorage.setItem(STORAGE_KEYS.currentTheme, DEFAULT_THEME.name);
+      }
+
+      renderThemes();
+    });
+  });
 }
 
-/* =========================================================
-   Funções auxiliares
-   ========================================================= */
-
-function createId() {
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function findTheme(name) {
+  if (name === DEFAULT_THEME.name) return DEFAULT_THEME;
+  return themes.find(theme => theme.name === name);
 }
 
-function formatDateForInput(date) {
+function applyTheme(theme, persist = true) {
+  applySettings(theme.settings, persist);
+}
+
+function applySettings(settings, persist = true) {
+  const colors = settings.colors || DEFAULT_THEME.settings.colors;
+  const dimensions = settings.dimensions || DEFAULT_THEME.settings.dimensions;
+
+  Object.entries(colors).forEach(([key, value]) => {
+    if (isValidHex(value)) {
+      document.documentElement.style.setProperty(`--${key}`, value);
+    }
+  });
+
+  document.documentElement.style.setProperty("--radius", `${dimensions.radius}px`);
+  document.documentElement.style.setProperty("--border-width", `${dimensions.border}px`);
+  document.documentElement.style.setProperty("--cell-gap", `${dimensions.gap}px`);
+  document.documentElement.style.setProperty("--base-font-size", `${dimensions.font}px`);
+
+  if (persist) {
+    saveData(STORAGE_KEYS.settings, {
+      colors: { ...colors },
+      dimensions: { ...dimensions }
+    });
+  }
+
+  if ($("#colorSettings")) {
+    renderCustomizationControls();
+  }
+
+  renderCalendar();
+}
+
+function restoreDefaultTheme() {
+  if (!confirm("Restaurar todas as configurações do tema padrão?")) return;
+
+  applyTheme(DEFAULT_THEME);
+  activeThemeName = DEFAULT_THEME.name;
+  localStorage.setItem(STORAGE_KEYS.currentTheme, DEFAULT_THEME.name);
+  $("#themeName").value = "";
+  renderThemes();
+}
+
+function toggleMenu() {
+  $("#sideMenu").classList.toggle("open");
+  $("#menuOverlay").classList.toggle("visible");
+}
+
+function closeMenu() {
+  $("#sideMenu").classList.remove("open");
+  $("#menuOverlay").classList.remove("visible");
+}
+
+function openModal(id) {
+  $(`#${id}`).classList.add("open");
+}
+
+function closeModal(id) {
+  $(`#${id}`).classList.remove("open");
+}
+
+function dateIsBetween(date, start, end) {
+  const value = formatDate(date);
+  return value >= start && value <= end;
+}
+
+function rangesOverlap(startA, endA, startB, endB) {
+  return startA <= endB && endA >= startB;
+}
+
+function parseDate(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-
   return `${year}-${month}-${day}`;
 }
 
-function formatDateBR(dateString) {
-  const [year, month, day] = dateString.split("-");
-  return `${day}/${month}/${year}`;
+function formatDateBR(value) {
+  return parseDate(value).toLocaleDateString("pt-BR");
 }
 
-function updateTodayPanel() {
-  const today = new Date();
+function addDays(date, amount) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + amount);
+  return result;
+}
 
-  document.getElementById("todayNumber").textContent =
-    String(today.getDate()).padStart(2, "0");
+function daysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
 
-  document.getElementById("todayWeekday").textContent =
-    weekdayNames[today.getDay()];
+function isSameDate(first, second) {
+  return formatDate(first) === formatDate(second);
+}
+
+function clampDate(date) {
+  const value = formatDate(date);
+
+  if (value < LIMITS.min) return parseDate(LIMITS.min);
+  if (value > LIMITS.max) return parseDate(LIMITS.max);
+
+  return date;
+}
+
+function normalizeHex(value) {
+  let normalized = String(value || "").trim().toUpperCase();
+
+  if (!normalized.startsWith("#") && /^[0-9A-F]{6}$/i.test(normalized)) {
+    normalized = `#${normalized}`;
+  }
+
+  return normalized;
+}
+
+function isValidHex(value) {
+  return /^#[0-9A-F]{6}$/i.test(value);
+}
+
+function escapeHTML(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function loadData(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveData(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
