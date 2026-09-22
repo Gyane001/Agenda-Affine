@@ -430,8 +430,8 @@ p {
 .day-cell {
   position: relative;
   min-width: 0;
-  min-height: 92px;
-  padding: 10px;
+  min-height: 110px;
+  padding: 34px 7px 7px;
   overflow: hidden;
   color: var(--number-color);
   background: var(--cell-bg);
@@ -465,10 +465,13 @@ p {
 }
 
 .day-number {
-  position: relative;
-  z-index: 1;
+  position: absolute;
+  z-index: 4;
+  top: 9px;
+  left: 10px;
   font-size: var(--day-number-size);
   font-weight: 800;
+  line-height: 1;
 }
 
 .today .day-number::after {
@@ -483,36 +486,51 @@ p {
 
 .event-layer {
   position: absolute;
-  top: 36px;
-  right: 0;
-  left: 0;
-  gap: 4px var(--cell-gap);
+  z-index: 2;
+  top: 34px;
+  right: 5px;
+  bottom: 5px;
+  left: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0 !important;
+  overflow: hidden;
   pointer-events: none;
 }
 
 .event-bar {
-  z-index: 2;
+  width: 100%;
   min-width: 0;
   height: 22px;
+  min-height: 22px;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 8px;
+  padding: 0 7px;
   overflow: hidden;
   color: var(--event-text-color);
   background: var(--event-color);
+  border: 0;
   border-radius: 6px;
   font-size: var(--event-size);
   font-weight: 800;
+  line-height: 1;
   white-space: nowrap;
   text-overflow: ellipsis;
   pointer-events: auto;
   cursor: pointer;
 }
 
-.event-bar:hover {
-  filter: brightness(1.08);
-  transform: scaleY(1.08);
+event-bar .bar-icon {
+  flex: 0 0 auto;
+}
+
+.event-bar .bar-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .side-menu {
@@ -902,50 +920,131 @@ p {
   .weekdays span:nth-child(7)::before { content: "Sáb"; }
 
   .day-cell {
-    min-height: 71px;
-    padding: 6px 4px;
-    border-radius: 8px;
+  position: relative;
+  min-width: 0;
+  min-height: 110px;
+  padding: 34px 7px 7px;
+  overflow: hidden;
+  color: var(--number-color);
+  background: var(--cell-bg);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 12px;
+  text-align: left;
+  transition: .2s ease;
+}
+
+.day-number {
+  position: absolute;
+  z-index: 4;
+  top: 9px;
+  left: 10px;
+  font-size: var(--day-number-size);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.event-layer {
+  position: absolute;
+  z-index: 2;
+  top: 34px;
+  right: 5px;
+  bottom: 5px;
+  left: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0 !important;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.event-bar {
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  overflow: hidden;
+  color: var(--event-text-color);
+  background: var(--event-color);
+  border: 0;
+  border-radius: 6px;
+  font-size: var(--event-size);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.event-bar .bar-icon {
+  flex: 0 0 auto;
+}
+
+.event-bar .bar-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.more-events-button {
+  width: 100%;
+  height: 22px;
+  min-height: 22px;
+  flex: 0 0 auto;
+  border: 1px dashed var(--accent-color);
+  border-radius: 6px;
+  color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 10%, transparent);
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: auto;
+}
+
+.more-events-button:hover {
+  color: var(--button-text);
+  background: var(--accent-color);
+}
+
+@media (max-width: 600px) {
+  .day-cell {
+    min-height: 82px;
+    padding: 30px 4px 4px;
   }
 
   .day-number {
+    top: 7px;
+    left: 6px;
     font-size: 12px;
-  }
-
-  .today .day-number::after {
-    display: none;
   }
 
   .event-layer {
     top: 29px;
-    gap: 2px 3px;
+    right: 3px;
+    bottom: 3px;
+    left: 3px;
+    gap: 3px;
+  }
+
+  .event-bar,
+  .more-events-button {
+    height: 18px;
+    min-height: 18px;
+    padding: 0 4px;
+    border-radius: 4px;
   }
 
   .event-bar {
-    height: 16px;
-    padding: 0 3px;
-    border-radius: 4px;
-    font-size: 0;
-  }
-
-  .event-bar .bar-icon {
     font-size: 10px;
   }
 
-  .event-bar .bar-name {
-    display: none;
+  .more-events-button {
+    font-size: 10px;
   }
-
-  .form-grid,
-  .customization-grid,
-  .range-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .field-wide {
-    grid-column: auto;
-  }
-
-  .customization-grid {
-    gap: 10px;
-  }
+}
 }

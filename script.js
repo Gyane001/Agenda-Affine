@@ -171,7 +171,12 @@ function renderCalendar() {
   $("#currentMonthLabel").textContent =
     `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
 
-  const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+  const firstDay = new Date(
+    viewDate.getFullYear(),
+    viewDate.getMonth(),
+    1
+  );
+
   const startDate = new Date(firstDay);
   startDate.setDate(firstDay.getDate() - firstDay.getDay());
 
@@ -189,10 +194,17 @@ function renderCalendar() {
       const date = new Date(weekStart);
       date.setDate(weekStart.getDate() + dayIndex);
 
-      const cell = document.createElement("button");
+      const dateString = formatDate(date);
+
+      /*
+       * Utilizamos uma div em vez de button para permitir
+       * que os botões das tags fiquem dentro da célula.
+       */
+      const cell = document.createElement("div");
       cell.className = "day-cell";
-      cell.type = "button";
-      cell.dataset.date = formatDate(date);
+      cell.dataset.date = dateString;
+      cell.tabIndex = 0;
+      cell.setAttribute("role", "button");
 
       if (date.getMonth() !== viewDate.getMonth()) {
         cell.classList.add("other-month");
@@ -210,66 +222,73 @@ function renderCalendar() {
         cell.classList.add("selected");
       }
 
-      cell.innerHTML = `<span class="day-number">${date.getDate()}</span>`;
+      const number = document.createElement("span");
+      number.className = "day-number";
+      number.textContent = date.getDate();
+
+      const eventLayer = document.createElement("div");
+      eventLayer.className = "event-layer";
+
+      const dayEvents = events
+        .filter(event => dateIsBetween(date, event.start, event.end))
+        .sort((a, b) => a.start.localeCompare(b.start));
+
+      const visibleEvents = dayEvents.slice(0, 3);
+      const remainingEvents = dayEvents.length - visibleEvents.length;
+
+      visibleEvents.forEach(event => {
+        const tag = document.createElement("button");
+        tag.type = "button";
+        tag.className = "event-bar";
+        tag.style.setProperty("--event-color", event.color);
+        tag.style.setProperty("--event-text-color", event.textColor);
+        tag.title = `${event.icon} ${event.name}`;
+
+        tag.innerHTML = `
+          <span class="bar-icon">${escapeHTML(event.icon)}</span>
+          <span class="bar-name">${escapeHTML(event.name)}</span>
+        `;
+
+        tag.addEventListener("click", clickEventHandler(event.id));
+        eventLayer.appendChild(tag);
+      });
+
+      if (remainingEvents > 0) {
+        const moreButton = document.createElement("button");
+        moreButton.type = "button";
+        moreButton.className = "more-events-button";
+        moreButton.textContent = `+${remainingEvents}`;
+
+        moreButton.title = `Visualizar ${remainingEvents} evento(s)`;
+
+        moreButton.addEventListener("click", event => {
+          event.stopPropagation();
+          selectDate(date);
+          renderEventPanel();
+        });
+
+        eventLayer.appendChild(moreButton);
+      }
+
+      cell.appendChild(number);
+      cell.appendChild(eventLayer);
+
       cell.addEventListener("click", () => selectDate(date));
+
+      cell.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectDate(date);
+        }
+      });
+
       daysRow.appendChild(cell);
     }
 
     weekElement.appendChild(daysRow);
-
-    const eventLayer = document.createElement("div");
-    eventLayer.className = "event-layer";
-
-    const weekEvents = getEventsForWeek(weekStart);
-    const lanes = [];
-
-    weekEvents.forEach(event => {
-      const eventStart = parseDate(event.start);
-      const eventEnd = parseDate(event.end);
-
-      const visibleStart = eventStart > weekStart ? eventStart : weekStart;
-      const weekEnd = addDays(weekStart, 6);
-      const visibleEnd = eventEnd < weekEnd ? eventEnd : weekEnd;
-
-      const startColumn = visibleStart.getDay() + 1;
-      const span = visibleEnd.getDay() - visibleStart.getDay() + 1;
-
-      let lane = 0;
-      while (lanes[lane]?.some(item => rangesOverlap(
-        item.start, item.end, visibleStart, visibleEnd
-      ))) {
-        lane++;
-      }
-
-      if (!lanes[lane]) lanes[lane] = [];
-      lanes[lane].push({
-        start: visibleStart,
-        end: visibleEnd
-      });
-
-      const bar = document.createElement("button");
-      bar.type = "button";
-      bar.className = "event-bar";
-      bar.style.gridColumn = `${startColumn} / span ${span}`;
-      bar.style.gridRow = lane + 1;
-      bar.style.setProperty("--event-color", event.color);
-      bar.style.setProperty("--event-text-color", event.textColor);
-      bar.title = `${event.icon} ${event.name}`;
-      bar.innerHTML = `
-        <span class="bar-icon">${escapeHTML(event.icon)}</span>
-        <span class="bar-name">${escapeHTML(event.name)}</span>
-      `;
-
-      bar.addEventListener("click", clickEventHandler(event.id));
-      eventLayer.appendChild(bar);
-    });
-
-    eventLayer.style.minHeight = `${Math.max(1, lanes.length) * 26}px`;
-    weekElement.appendChild(eventLayer);
     grid.appendChild(weekElement);
   }
 }
-
 function getEventsForWeek(weekStart) {
   const weekEnd = addDays(weekStart, 6);
 
