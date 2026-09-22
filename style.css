@@ -430,7 +430,7 @@ p {
 .day-cell {
   position: relative;
   min-width: 0;
-  min-height: 110px;
+  min-height: 150px;
   padding: 34px 7px 7px;
   overflow: hidden;
   color: var(--number-color);
@@ -1013,7 +1013,7 @@ event-bar .bar-icon {
 
 @media (max-width: 600px) {
   .day-cell {
-    min-height: 82px;
+    min-height: 92px;
     padding: 30px 4px 4px;
   }
 
