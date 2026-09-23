@@ -253,20 +253,18 @@ function renderCalendar() {
         eventLayer.appendChild(tag);
       });
 
+      
       if (remainingEvents > 0) {
         const moreButton = document.createElement("button");
         moreButton.type = "button";
         moreButton.className = "more-events-button";
-        moreButton.textContent = `+${remainingEvents}`;
+        moreButton.title = `Visualizar mais ${remainingEvents} tarefa(s)`;
+        moreButton.textContent = "＋";
 
-        moreButton.title = `Visualizar ${remainingEvents} evento(s)`;
 
         moreButton.addEventListener("click", event => {
           event.stopPropagation();
-          selectDate(date);
-          renderEventPanel();
         });
-
         eventLayer.appendChild(moreButton);
       }
 
@@ -284,6 +282,7 @@ function renderCalendar() {
 
       daysRow.appendChild(cell);
     }
+
 
     weekElement.appendChild(daysRow);
     grid.appendChild(weekElement);
@@ -349,9 +348,8 @@ function renderEventPanel() {
     .filter(event => dateIsBetween(selectedDate, event.start, event.end))
     .sort((a, b) => a.start.localeCompare(b.start));
 
-  $("#eventCount").textContent = `${dayEvents.length} ${
-    dayEvents.length === 1 ? "evento" : "eventos"
-  }`;
+  $("#eventCount").textContent = `${dayEvents.length} ${dayEvents.length === 1 ? "evento" : "eventos"
+    }`;
 
   const list = $("#eventList");
   list.innerHTML = "";

@@ -522,7 +522,7 @@ p {
   cursor: pointer;
 }
 
-event-bar .bar-icon {
+.event-bar .bar-icon {
   flex: 0 0 auto;
 }
 
@@ -822,229 +822,43 @@ event-bar .bar-icon {
   background: #fff2f0;
 }
 
-@media (max-width: 850px) {
-  .planner-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .events-panel {
-    min-height: 270px;
-  }
-
-  .wide-add-button {
-    margin-top: 20px;
-  }
-}
-
-@media (max-width: 600px) {
-  .topbar {
-    height: 70px;
-    gap: 11px;
-    padding: 0 14px;
-  }
-
-  .brand {
-    gap: 6px;
-  }
-
-  .brand-mark {
-    font-size: 21px;
-  }
-
-  .brand strong {
-    font-size: 13px;
-  }
-
-  .header-actions {
-    gap: 5px;
-  }
-
-  .header-actions .secondary-button {
-    padding: 0 9px;
-  }
-
-  .header-actions .primary-button {
-    width: 40px;
-    padding: 0;
-    font-size: 21px;
-  }
-
-  .header-actions .primary-button span {
-    display: none;
-  }
-
-  .planner-layout {
-    width: calc(100% - 20px);
-    gap: 14px;
-    padding: 14px 0;
-  }
-
-  .events-panel,
-  .calendar-panel {
-    padding: 17px 12px;
-    border-radius: 14px;
-  }
-
-  .calendar-toolbar h2,
-  .panel-heading h1 {
-    font-size: 22px;
-  }
-
-  .weekdays,
-  .days-row {
-    gap: 3px;
-  }
-
-  .weekdays span {
-    min-height: 34px;
-    padding: 7px 1px;
-    overflow: hidden;
-    font-size: 0;
-    white-space: nowrap;
-  }
-
-  .weekdays span::first-letter {
-    font-size: 11px;
-  }
-
-  .weekdays span::after {
-    content: "";
-  }
-
-  .weekdays span:nth-child(1)::before { content: "Dom"; }
-  .weekdays span:nth-child(2)::before { content: "Seg"; }
-  .weekdays span:nth-child(3)::before { content: "Ter"; }
-  .weekdays span:nth-child(4)::before { content: "Qua"; }
-  .weekdays span:nth-child(5)::before { content: "Qui"; }
-  .weekdays span:nth-child(6)::before { content: "Sex"; }
-  .weekdays span:nth-child(7)::before { content: "Sáb"; }
-
-  .day-cell {
-  position: relative;
-  min-width: 0;
-  min-height: 110px;
-  padding: 34px 7px 7px;
-  overflow: hidden;
-  color: var(--number-color);
-  background: var(--cell-bg);
-  border: var(--border-width) solid var(--border-color);
-  border-radius: 12px;
-  text-align: left;
-  transition: .2s ease;
-}
-
-.day-number {
-  position: absolute;
-  z-index: 4;
-  top: 9px;
-  left: 10px;
-  font-size: var(--day-number-size);
-  font-weight: 800;
-  line-height: 1;
-}
-
-.event-layer {
-  position: absolute;
-  z-index: 2;
-  top: 34px;
-  right: 5px;
-  bottom: 5px;
-  left: 5px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-height: 0 !important;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.event-bar {
-  width: 100%;
-  min-width: 0;
-  height: 22px;
-  min-height: 22px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 7px;
-  overflow: hidden;
-  color: var(--event-text-color);
-  background: var(--event-color);
-  border: 0;
-  border-radius: 6px;
-  font-size: var(--event-size);
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-.event-bar .bar-icon {
-  flex: 0 0 auto;
-}
-
-.event-bar .bar-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .more-events-button {
   width: 100%;
   height: 22px;
   min-height: 22px;
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 7px;
+  overflow: hidden;
   border: 1px dashed var(--accent-color);
   border-radius: 6px;
   color: var(--accent-color);
-  background: color-mix(in srgb, var(--accent-color) 10%, transparent);
+  background: color-mix(in srgb, var(--accent-color) 9%, transparent);
   font-size: 11px;
   font-weight: 800;
   pointer-events: auto;
+  cursor: pointer;
+}
+
+.more-events-icon {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.more-events-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .more-events-button:hover {
   color: var(--button-text);
   background: var(--accent-color);
+  border-color: var(--accent-color);
 }
 
-@media (max-width: 600px) {
-  .day-cell {
-    min-height: 92px;
-    padding: 30px 4px 4px;
-  }
-
-  .day-number {
-    top: 7px;
-    left: 6px;
-    font-size: 12px;
-  }
-
-  .event-layer {
-    top: 29px;
-    right: 3px;
-    bottom: 3px;
-    left: 3px;
-    gap: 3px;
-  }
-
-  .event-bar,
-  .more-events-button {
-    height: 18px;
-    min-height: 18px;
-    padding: 0 4px;
-    border-radius: 4px;
-  }
-
-  .event-bar {
-    font-size: 10px;
-  }
-
-  .more-events-button {
-    font-size: 10px;
-  }
-}
-}
